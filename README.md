@@ -216,7 +216,11 @@ cd openshift/install
 ```
 Nội dung file install-config.yaml
 ```
-d
+apiVersion: v1
+baseDomain: ocp-poc-demo.com
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
   name: worker
   replicas: 0
 controlPlane:
