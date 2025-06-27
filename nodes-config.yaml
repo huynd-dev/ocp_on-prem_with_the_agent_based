@@ -1,0 +1,133 @@
+hosts:
+- hostname: compute01.hub.bca.gov.vn
+  rootDeviceHints:
+   deviceName: /dev/sda
+  interfaces:
+   - macAddress: fa:16:3e:b2:9c:08
+     name: eth0
+  networkConfig:
+   interfaces:
+     - name: eth0
+       type: ethernet
+       state: up
+       mac-address: fa:16:3e:b2:9c:08
+       ipv4:
+         enabled: true
+         address:
+           - ip: 10.171.132.45
+             prefix-length: 24
+         dhcp: false
+      dns-resolver:
+        config:
+          server:
+            - 10.171.132.40
+- hostname: compute02.hub.bca.gov.vn
+  rootDeviceHints:
+   deviceName: /dev/sda
+  interfaces:
+   - macAddress: fa:16:3e:d8:b4:73
+     name: eth0
+  networkConfig:
+   interfaces:
+     - name: eth0
+       type: ethernet
+       state: up
+       mac-address: fa:16:3e:d8:b4:73
+       ipv4:
+         enabled: true
+         address:
+           - ip: 10.171.132.46
+             prefix-length: 24
+         dhcp: false
+      dns-resolver:
+        config:
+          server:
+            - 10.171.132.40
+- hostname: compute03.hub.bca.gov.vn
+  rootDeviceHints:
+   deviceName: /dev/sda
+  interfaces:
+   - macAddress: fa:16:3e:79:d0:52
+     name: eth0
+  networkConfig:
+   interfaces:
+     - name: eth0
+       type: ethernet
+       state: up
+       mac-address: fa:16:3e:79:d0:52
+       ipv4:
+         enabled: true
+         address:
+           - ip: 10.171.132.47
+             prefix-length: 24
+         dhcp: false
+      dns-resolver:
+        config:
+          server:
+            - 10.171.132.40
+- hostname: compute04.hub.bca.gov.vn
+  rootDeviceHints:
+   deviceName: /dev/sda
+  interfaces:
+   - macAddress: fa:16:3e:aa:95:cb
+     name: eth0
+  networkConfig:
+   interfaces:
+     - name: eth0
+       type: ethernet
+       state: up
+       mac-address: fa:16:3e:aa:95:cb
+       ipv4:
+         enabled: true
+         address:
+           - ip: 10.171.132.48
+             prefix-length: 24
+         dhcp: false
+      dns-resolver:
+        config:
+          server:
+            - 10.171.132.40
+- hostname: compute05.hub.bca.gov.vn
+  rootDeviceHints:
+   deviceName: /dev/sda
+  interfaces:
+   - macAddress: fa:16:3e:04:de:b4
+     name: eth0
+  networkConfig:
+   interfaces:
+     - name: eth0
+       type: ethernet
+       state: up
+       mac-address: fa:16:3e:04:de:b4
+       ipv4:
+         enabled: true
+         address:
+           - ip: 10.171.132.49
+             prefix-length: 24
+         dhcp: false
+      dns-resolver:
+        config:
+          server:
+            - 10.171.132.40
+- hostname: compute06.hub.bca.gov.vn
+  rootDeviceHints:
+   deviceName: /dev/sda
+  interfaces:
+   - macAddress: fa:16:3e:14:b8:fd
+     name: eth0
+  networkConfig:
+   interfaces:
+     - name: eth0
+       type: ethernet
+       state: up
+       mac-address: fa:16:3e:14:b8:fd
+       ipv4:
+         enabled: true
+         address:
+           - ip: 10.171.132.50
+             prefix-length: 24
+         dhcp: false
+      dns-resolver:
+        config:
+          server:
+            - 10.171.132.40
