@@ -428,3 +428,123 @@ Theo dõi worker node boostrap lên
 ```
 oc adm node-image monitor --ip-addresses <ip-node>
 ```
+### Install ODF
+```
+NODE_NAME=node/compute01.hub.bca.gov.vn
+ cat <<EOF | oc debug $NODE_NAME
+ chroot /host
+ lsblk -o NAME,ROTA,SIZE,TYPE
+EOF
+```
+```
+NODE_NAME=node/compute01.hub.bca.gov.vn
+ cat <<EOF | oc debug $NODE_NAME
+ chroot /host
+ ls -aslc /dev/disk/by-path/
+EOF
+```
+```
+cat << 'EOF' > 99-fake-nonrotational-mc.bu
+variant: openshift
+version: 4.18.1
+metadata:
+  name: 99-fake-nonrotational
+  labels:
+    machineconfiguration.openshift.io/role: master
+storage:
+  files:
+    - path: /etc/fake-nonrotational.sh
+      mode: 0755
+      contents:
+        inline: |
+          #!/bin/bash
+
+          target_disks=$(lsblk -dn -o NAME,SIZE | awk '$2 == "500G" {print $1}')
+
+          for disk in $target_disks; do
+              echo "Changing disk: /dev/$disk to non-rotational."
+              echo 0 > /sys/block/$disk/queue/rotational
+          done
+systemd:
+  units:
+    - name: fake-nonrotational.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Force specific-size disks to be nonrotational
+        After=local-fs.target
+        Wants=local-fs.target
+
+        [Service]
+        Type=oneshot
+        ExecStart=/etc/fake-nonrotational.sh
+        Restart=on-failure
+        RestartSec=5s
+        RemainAfterExit=true
+        User=root
+
+        [Install]
+        WantedBy=multi-user.target
+EOF
+```
+
+```
+cat <<EOF | oc apply -f -
+---
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    node-role.kubernetes.io/infra: ""
+  annotations:
+    description: "MC sets disks with size 500G to non-rotational."
+  name: 99-fake-nonrotational
+spec:
+  config:
+    ignition:
+      version: 3.4.0
+    storage:
+      files:
+        - contents:
+            compression: gzip
+            source: data:;base64,H4sIAAAAAAAC/0zNvU7DQBDE8X6fYnBOCkiYTVKCjIRQQBTQ0NGgc+5ir2ztgu9CxNe7I44i9P/fzOyIW1FufeqJZrgRDQiShoS95B4eST4ibIvlanFL2U9dzM8laNzxmNpxQB0UteHh6n59+nj3tMYX/H7A3K3QNKh+YYXPl0k0wy2/5ydEW5vKC0Th/o9eIBgBQNz0huq699qJdiU+B4f4xq7AbFDTerLss5j68aw6uAUuwek9cTvaZvgT/LqLu8gHQME00k8AAAD//0gklW0AAQAA
+          mode: 493
+          path: /etc/fake-nonrotational.sh
+    systemd:
+      units:
+        - contents: |
+            [Unit]
+            Description=Force specific-size disks to be nonrotational
+            After=local-fs.target
+            Wants=local-fs.target
+
+            [Service]
+            Type=oneshot
+            ExecStart=/etc/fake-nonrotational.sh
+            Restart=on-failure
+            RestartSec=5s
+            RemainAfterExit=true
+            User=root
+
+            [Install]
+            WantedBy=multi-user.target
+          enabled: true
+          name: fake-nonrotational.service
+EOF
+```
+```
+NODE_NAME=node/compute01.hub.bca.gov.vn
+
+cat <<EOF | oc debug $NODE_NAME
+  cat /sys/block/vdb/queue/rotational
+EOF
+```
+```
+NODE_NAME=node/compute01.hub.bca.gov.vn
+
+cat <<EOF | oc debug $NODE_NAME
+chroot /host
+
+journalctl | grep -e fake-nonrotational
+EOF
+```
