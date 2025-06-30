@@ -429,6 +429,11 @@ Theo dõi worker node boostrap lên
 oc adm node-image monitor --ip-addresses <ip-node>
 ```
 ### Install ODF
+Environment should labels be directly applied to nodes
+```
+oc label node <node> node-role.kubernetes.io/infra=""
+oc label node <node> cluster.ocs.openshift.io/openshift-storage=""
+```
 ```
 NODE_NAME=node/compute01.hub.bca.gov.vn
  cat <<EOF | oc debug $NODE_NAME
