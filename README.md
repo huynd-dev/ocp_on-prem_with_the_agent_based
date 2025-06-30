@@ -420,3 +420,11 @@ openshift-install agent --dir install wait-for bootstrap-complete --log-level=de
 
 openshift-install agent --dir install wait-for install-complete --log-level=debug
 ```
+Tạo image cho worker node
+```
+oc adm node-image create nodes-config.yaml --registry-config=/root/.docker/config.json
+```
+Theo dõi worker node boostrap lên
+```
+oc adm node-image monitor --ip-addresses <ip-node>
+```
