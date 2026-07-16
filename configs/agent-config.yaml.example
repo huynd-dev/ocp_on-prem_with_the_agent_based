@@ -1,0 +1,114 @@
+# Template for the agent-based installer's agent-config.yaml — static network
+# config for the bootstrap/control-plane hosts baked into the install ISO.
+# Copy to agent-config.yaml next to install-config.yaml before running
+# `openshift-install agent create image`.
+apiVersion: v1beta1
+kind: AgentConfig
+metadata:
+  name: cluster-agent-config
+# IP of the host that leads the bootstrap/rendezvous process — any one
+# of the hosts below, reachable from the others.
+rendezvousIP: 192.0.2.200
+hosts:
+
+  - hostname: master01
+    interfaces:
+      - name: eth0
+        macAddress: <NIC_MAC_ADDRESS>
+    networkConfig:
+      interfaces:
+        - name: eth0
+          type: ethernet
+          state: up
+          mtu: 1500
+          ipv4:
+            enabled: true
+            dhcp: false
+            address:
+              - ip: 192.0.2.200
+                prefix-length: 24
+          ipv6:
+            enabled: false
+            dhcp: false
+            autoconf: false
+      dns-resolver:
+        config:
+          search:
+            - example.com
+          server:
+            - 8.8.8.8
+            - 8.8.4.4
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 192.0.2.1
+            next-hop-interface: eth0
+            table-id: 254
+
+  - hostname: master02
+    interfaces:
+      - name: eth0
+        macAddress: <NIC_MAC_ADDRESS>
+    networkConfig:
+      interfaces:
+        - name: eth0
+          type: ethernet
+          state: up
+          mtu: 1500
+          ipv4:
+            enabled: true
+            dhcp: false
+            address:
+              - ip: 192.0.2.201
+                prefix-length: 24
+          ipv6:
+            enabled: false
+            dhcp: false
+            autoconf: false
+      dns-resolver:
+        config:
+          search:
+            - example.com
+          server:
+            - 8.8.8.8
+            - 8.8.4.4
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 192.0.2.1
+            next-hop-interface: eth0
+            table-id: 254
+
+  - hostname: master03
+    interfaces:
+      - name: eth0
+        macAddress: <NIC_MAC_ADDRESS>
+    networkConfig:
+      interfaces:
+        - name: eth0
+          type: ethernet
+          state: up
+          mtu: 1500
+          ipv4:
+            enabled: true
+            dhcp: false
+            address:
+              - ip: 192.0.2.202
+                prefix-length: 24
+          ipv6:
+            enabled: false
+            dhcp: false
+            autoconf: false
+      dns-resolver:
+        config:
+          search:
+            - example.com
+          server:
+            - 8.8.8.8
+            - 8.8.4.4
+      routes:
+        config:
+          - destination: 0.0.0.0/0
+            next-hop-address: 192.0.2.1
+            next-hop-interface: eth0
+            table-id: 254

@@ -1,555 +1,123 @@
-# Install Openshift with Agent Based Installer
-### [I. Overview](#overview)
-- [1. Architecture](#architect)
-- [2. IP Planning](#ipplanning)
-- [3. Topology](#topo)
+# OpenShift On-Prem Install — Agent-Based Installer
 
-### [II. Installing](#enviroment)
-- [1. Install tool client on Bastion node](#bastion)
-- [2. Install Registry](#registry)
-- - [2.1. Registry use Harbor](#harbor)
-- - [2.2. Registry use Red Hat Quay](#quay)
-- [3. Disconnected Registry Mirroring ](#mirror)
-- [4. Installing Cluster Based on this Disconnected Registry](#install)
-- - [4.1. Create install-config.yaml](#install-config)
-- - [4.2. Create agent-config.yaml](#agent-config)
-- [5. Create the ISOs needed for install](#iso)
+Runbook and config templates for standing up a disconnected, bare-metal OpenShift
+Container Platform (OCP) cluster with the [Agent-Based Installer](https://docs.openshift.com/container-platform/latest/installing/installing_with_agent_based_installer/preparing-to-install-with-agent-based-installer.html),
+backed by a local Harbor or Red Hat Quay mirror registry.
 
+## Table of contents
 
+**I. Overview**
+- [Architecture](#architecture)
+- [IP planning](#ip-planning)
+- [Topology](#topology)
 
-## Set timezone 
-### Ulimit
-```
-ULIMITS_CONF_PATH="/etc/security/limits.conf"
+**II. Installing**
+1. [Prerequisites — bastion host prep](docs/01-prerequisites.md)
+2. [Disconnected registry setup (Harbor / Quay)](docs/02-registry-setup.md)
+3. [Disconnected registry mirroring](docs/03-disconnected-mirroring.md) *(not yet documented, see note in file)*
+4. [Installing the cluster](docs/04-cluster-install.md)
+5. [Adding worker nodes (day 2)](docs/05-worker-node-addition.md)
+6. [Installing ODF](docs/06-odf-storage.md)
 
-sed -i -r "/^\*(.*)soft(.*)nofile(.*)/d" $ULIMITS_CONF_PATH
-sed -i -r "/^\*(.*)hard(.*)nofile(.*)/d" $ULIMITS_CONF_PATH
-sed -i -r "/^\*(.*)soft(.*)nproc(.*)/d" $ULIMITS_CONF_PATH
-sed -i -r "/^\*(.*)hard(.*)nproc(.*)/d" $ULIMITS_CONF_PATH
-sed -i -r "/^\*(.*)soft(.*)memlock(.*)/d" $ULIMITS_CONF_PATH
-sed -i -r "/^\*(.*)hard(.*)memlock(.*)/d" $ULIMITS_CONF_PATH
+## Architecture
 
-echo "* soft nofile 655360" >> $ULIMITS_CONF_PATH
-echo "* hard nofile 131072" >> $ULIMITS_CONF_PATH
-echo "* soft nproc 655360" >> $ULIMITS_CONF_PATH
-echo "* hard nproc 655360" >> $ULIMITS_CONF_PATH
-echo "* soft memlock unlimited" >> $ULIMITS_CONF_PATH
-echo "* hard memlock unlimited" >> $ULIMITS_CONF_PATH
+- **Control plane**: 3 bare-metal masters, fixed at install time (`controlPlane.replicas: 3`).
+- **Workers**: 0 at install time; added post-install as a day-2 operation via
+  `oc adm node-image` (see [doc 5](docs/05-worker-node-addition.md)) so worker count/hardware
+  can grow independently of the initial bootstrap.
+- **Networking**: `OVNKubernetes` CNI, one routable VIP for the API and one for Ingress,
+  both on the bare-metal platform integration (`platform.baremetal`).
+- **Registry**: a disconnected/mirror registry (Harbor or Red Hat Quay's `mirror-registry`)
+  hosts the OCP release and operator images; its CA is trusted cluster-wide via
+  `additionalTrustBundle`.
+- **Storage**: ODF (OpenShift Data Foundation) on labeled infra nodes, with a MachineConfig
+  workaround to make virtual disks discoverable (see [doc 6](docs/06-odf-storage.md)).
 
-
-timedatectl set-timezone "Asia/Ho_Chi_Minh"
-timedatectl set-ntp 1
-```
-
-Tunning Sysctl
-```
-# Network setup
-###################
-
-cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
-overlay
-br_netfilter
-EOF
-
-sudo modprobe overlay
-sudo modprobe br_netfilter
-
-# sysctl params required by setup, params persist across reboots
-cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
-# SWAP settings
-vm.swappiness=0
-vm.panic_on_oom=0
-vm.overcommit_memory=1
-kernel.panic=10
-kernel.panic_on_oops=1
-vm.max_map_count = 262144
-
-# Have a larger connection range available
-net.ipv4.ip_local_port_range=1024 65000
-
-# Increase max connection
-net.core.somaxconn=10000
-
-# Reuse closed sockets faster
-net.ipv4.tcp_tw_reuse=1
-net.ipv4.tcp_fin_timeout=15
-
-# The maximum number of "backlogged sockets".  Default is 128.
-net.core.somaxconn=4096
-net.core.netdev_max_backlog=4096
-
-# 16MB per socket - which sounds like a lot,
-net.core.rmem_max=16777216
-net.core.wmem_max=16777216
-
-# Various network tunables
-net.ipv4.tcp_max_syn_backlog=20480
-net.ipv4.tcp_max_tw_buckets=400000
-net.ipv4.tcp_no_metrics_save=1
-net.ipv4.tcp_rmem=4096 87380 16777216
-net.ipv4.tcp_syn_retries=2
-net.ipv4.tcp_synack_retries=2
-net.ipv4.tcp_wmem=4096 65536 16777216
-
-# ARP cache settings for a highly loaded docker swarm
-net.ipv4.neigh.default.gc_thresh1=8096
-net.ipv4.neigh.default.gc_thresh2=12288
-net.ipv4.neigh.default.gc_thresh3=16384
-
-# ip_forward and tcp keepalive for iptables
-net.ipv4.tcp_keepalive_time=600
-net.ipv4.ip_forward=1
-
-# monitor file system events
-fs.inotify.max_user_instances=8192
-fs.inotify.max_user_watches=1048576
-```
-### Habor Registry
-Download package from link Github Harbor https://github.com/goharbor/harbor/releases
-
-harbor.yml
-```
-hostname: registry.hub.bca.gov.vn
-http:
-  port: 80
-https:
-  port: 443
-  certificate: /opt/harbor/cert/cert.pem
-  private_key: /opt/harbor/cert/key.pem
-harbor_admin_password: Harbor12345
-database:
-  password: root123
-  max_idle_conns: 100
-  max_open_conns: 900
-  conn_max_lifetime: 5m
-  conn_max_idle_time: 0
-data_volume: /data
-trivy:
-  ignore_unfixed: false
-  skip_update: false
-  skip_java_db_update: false
-  offline_scan: false
-  security_check: vuln
-  insecure: false
-  timeout: 5m0s
-jobservice:
-  max_job_workers: 10
-  max_job_duration_hours: 24
-  job_loggers:
-    - STD_OUTPUT
-    - FILE
-  logger_sweeper_duration: 1
-notification:
-  webhook_job_max_retry: 3
-  webhook_job_http_client_timeout: 3
-log:
-  level: info
-  local:
-    rotate_count: 50
-    rotate_size: 200M
-    location: /var/log/harbor
-_version: 2.13.0
-proxy:
-  http_proxy:
-  https_proxy:
-  no_proxy:
-  components:
-    - core
-    - jobservice
-    - trivy
-upload_purging:
-  enabled: true
-  age: 168h
-  interval: 24h
-  dryrun: false
-cache:
-  enabled: false
-  expire_hours: 24
-```
-### Install Red Hat Quay
-Download Red Hat Quay
-```
-wget https://mirror.openshift.com/pub/cgw/mirror-registry/latest/mirror-registry-amd64.tar.gz
-tar -xzvf mirror-registry-amd64.tar.gz
-```
-Chạy lệnh sau để instal Red Hat Quay
-```
-export REGISTRY_SERVER = "registry.<domain>.com"
-./mirror-registry install --quayHostname $REGISTRY_SERVER --quayRoot /data/quay --quayStorage /data/quay/storage --sqliteStorage /data/quay/sqlitedb --initUser huynd --initPassword xxxxxxxxx
+```mermaid
+flowchart LR
+    subgraph Bastion
+        B[Bastion host<br/>oc / openshift-install / oc-mirror]
+        R[(Mirror registry<br/>Harbor or Quay)]
+    end
+    subgraph Cluster
+        M1[Master 1]
+        M2[Master 2]
+        M3[Master 3]
+        VIP[[API + Ingress VIP]]
+        W1[Worker 1..N<br/>added day-2]
+    end
+    B -- ISO boot / node-image --> M1
+    B -- ISO boot / node-image --> M2
+    B -- ISO boot / node-image --> M3
+    B -- node-image --> W1
+    M1 & M2 & M3 --- VIP
+    M1 & M2 & M3 <-. pull images .-> R
+    W1 <-. pull images .-> R
 ```
 
-Sau khi Red Hat quay thực hiện cài đặt xong thì cần thực hiện TrustCA để truy cập đến Quay bằng HTTPS
-```
-cp /data/quay/quay-rootCA/rootCA.pem /etc/pki/ca-trust/source/anchors/
+## IP planning
 
-update-ca-trust extract
-```
+Fill this in per environment before generating `install-config.yaml` / `agent-config.yaml`
+(examples below use the documentation-only range `192.0.2.0/24`, per RFC 5737):
 
-### Download Openshift client tool
-```
-wget https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.19.0/openshift-client-linux-4.19.0.tar.gz
-tar -xvf openshift-client-linux-4.19.0.tar.gz
+| Role                  | Hostname             | IP            | Notes                        |
+|-----------------------|-----------------------|---------------|-------------------------------|
+| Bastion / registry    | `registry.example.com`| `192.0.2.40`  | Runs Harbor/Quay + client tools |
+| API VIP               | `api.hub.example.com` | `192.0.2.41`  | `platform.baremetal.apiVIP`   |
+| Ingress VIP           | `*.apps.hub.example.com` | `192.0.2.42` | `platform.baremetal.ingressVIP` |
+| Master 1              | `master01`            | `192.0.2.200` | Also `rendezvousIP`           |
+| Master 2              | `master02`            | `192.0.2.201` |                               |
+| Master 3              | `master03`            | `192.0.2.202` |                               |
+| Worker N              | `computeNN`           | `192.0.2.4x`  | Added via `oc adm node-image` |
 
-wget https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/latest/oc-mirror.rhel9.tar.gz
-tar -xzvf oc-mirror.rhel9.tar.gz
+## Topology
 
-wget https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/4.19.0/openshift-install-linux-4.19.0.tar.gz
-tar -xvf openshift-install-linux-4.19.0.tar.gz
-```
-### Create pull-secret
-Vào link https://console.redhat.com/openshift/downloads#tool-pull-secret để lấy pull-secret
-```
-yum install jq -y
-cat pull-secret.txt | jq > pull-secret.json
-mkdir /root/.docker/
-cp pull-secret.json /root/.docker/auth.json
-```
+A single L2/L3-routable subnet carries bastion, registry, control-plane and worker traffic;
+the bastion node is the only host that needs external (mirrored) connectivity. See the
+diagram under [Architecture](#architecture) above.
 
-### Create directory openshift
+## Repository layout
 
 ```
-mkdir -p openshift/install
-```
-Tạo 2 file agent-config.yaml và install-config.yaml
-```
-cd openshift/install
-```
-Nội dung file install-config.yaml
-```
-apiVersion: v1
-baseDomain: ocp-poc-demo.com
-compute:
-- architecture: amd64
-  hyperthreading: Enabled
-  name: worker
-  replicas: 0
-controlPlane:
-  architecture: amd64
-  hyperthreading: Enabled
-  name: master
-  replicas: 3
-metadata:
-  name: disconnected
-networking:
-  clusterNetwork:
-  - cidr: 10.128.0.0/14
-    hostPrefix: 23
-  machineNetwork:
-  - cidr: 192.168.4.0/24
-  networkType: OVNKubernetes
-  serviceNetwork:
-  - 172.30.0.0/16
-platform:
-  baremetal:
-    apiVIP: "192.168.4.60"
-    ingressVIP: "192.168.4.61"
-pullSecret: '{"auths":{"host2.ocp-poc-demo.com:8443":{"auth":"aW5pdDpPztrFNTRoMEM3b0g5WnUxR3Y4RtNJVldVTnpENlh5QQ=="}}}'
-sshKey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDY4FFXOr3y52gyDVGeZvtf+Le3NLkllsGqJfKLWQOpHpL7AFlibK/YBlZMD5yT//ZVJ1g+AreSZpcbngvcVFdMhSL8eFSHGDAT1aZIRVdPnQ/3eNrLsLjldiR+HT191QEHl3DHY0ZyT37rl30CQ5xiUd7/5ZemiArypnxjelsaYIEnT5UcRDOAk3CDPbF8M0gNNwNAqKmRGNKcJmTgSSLjJGDblxNGMk5TIl21yxNZqJqDdQgj4s9cp0OM5ZPg1ZE9syKSqg/PkNcOZ5PVzFrOpVsVJTiSnTPlU5bmqbrwnH3ij2QdtSBh4fznchaY6z38uT8EBzXycuvaILLVVl2Qa/mITjujMVicnDYpilUeoDnd6/ZR6QZfKnCBz/T4MQ24wC2TlxXqtNSpaIbAOsNovbOvDmt5iDD1gsRGXfyrLjDAzUJKHOKWGkLbcolGjSemqzvfeDU/7iA90zUhGORmbawQcQeRHEwzIXzpL+Sby3ntrx4a/KI5STw9rCTAsPE= keith@host3.ocp-poc-demo.com'
-additionalTrustBundle: |
-  -----BEGIN CERTIFICATE-----
-  MIIDcTCCAlmgAwIBAgIUDOyG3KLLwQsVkSahzbuaHFEZxU4wDQYJKoZIhvcNAQEL
-  BQAweTELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAlZBMREwDwYDVQQHDAhOZXcgWW9y
-  azENMAsGA1UECgwEUXVheTERMA8GA1UECwwIRGl2aXNpb24xKDAmBgNVBAMMH3Rl
-  c3R2bS1kbnZyLnZvaXAuY2hhcnRlcmxhYi5jb20wHhcNMjUwNTE2MjAyNzEyWhcN
-  MjYwNTA3MjAyNzEyWjAaMRgwFgYDVQQDDA9xdWF5LWVudGVycHJpc2UwggEiMA0G
-  CSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDN0HPGI7rR6DuvcfFzOzA45AHjoKDY
-  kfiSCRzVRtm8SwA3ckORMkaGtTcPne9xPBoWZGBSBwRIzc2sLuwaMVs7cqavSHeo
-  x8jYdUG1esnSdyfAOvLN/+gjvH9f6b6S6fCE+RWoI0YoMg8CNV3kOLOh46XDHWuM
-  eVSz2n2b5Ni/zufZO6S9ht/QR0VBn4J0DSnrRtc4jvi/1AM8+YFRF7e1n0jqTGyv
-  u/cXn9kisbvH9ouZ/0weX7uz4E00VLRiX4a5RZlpNzSlwb6BRINh2HwE1bCUx35p
-  QWhZpiE7A9xMlHs6jfXHTMIRW9+AgxXL6PzBubqWIngk5U7+8yU+n5avAgMBAAGj
-  UDBOMAsGA1UdDwQEAwIC5DATBgNVHSUEDDAKBggrBgEFBQcDATAqBgNVHREEIzAh
-  gh90ZXN0dm0tZG52ci52b2lwLmNoYXJ0ZXJsYWIuY29tMA0GCSqGSIb3DQEBCwUA
-  A4IBAQAT/WKxvtn59MnaO7nz+kfWrekPmr8W0vJiC04b3goWfnhdjGW/NXCuutio
-  K8ESyazUfTaWYLHkbq/Yx+A3I/7T5aA9rFPkXhIE4KRWGmFciMXPfmKvCBhsLhrx
-  toL7WD5dthrLJbeRlzaG0zXwf2IAa3pzx72SBdBh81cW6UY88O6DwlIVN66tMpIk
-  P2FWUoZ22pHCKMkNSh8y1xfL3ddP0OhlcsobS000E4vgXxeGrFEKkyuYpP8TsPzZ
-  SdlJwXWIl3vhpmLdFiNXd5Td81/UYbh62t/A9ZzS1lY55cGY7C6BvN32RUjkM2Z/
-  BCmhQXTqg5ar6O/nct2VXKIuvtMl
-  -----END CERTIFICATE-----
-  -----BEGIN CERTIFICATE-----
-  MIID5DCCAsygAwIBAgIUMy2WGoXqDOQbrKb8it7Vyi7D0iMwDQYJKoZIhvcNAQEL
-  BQAweTELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAlZBMREwDwYDVQQHDAhOZXcgWW9y
-  azENMAsGA1UECgwEUXVheTERMA8GA1UECwwIRGl2aXNpb24xKDAmBgNVBAMMH3Rl
-  c3R2bS1kbnZyLnZvaXAuY2hhcnRlcmxhYi5jb20wHhcNMjUwNTE2MjAyNzEwWhcN
-  MjgwMzA1MjAyNzEwWjB5MQswCQYDVQQGEwJVUzELMAkGA1UECAwCVkExETAPBgNV
-  BAcMCE5ldyBZb3JrMQ0wCwYDVQQKDARRdWF5MREwDwYDVQQLDAhEaXZpc2lvbjEo
-  MCYGA1UEAwwfdGVzdHZtLWRudnIudm9pcC5jaGFydGVybGFiLmNvbTCCASIwDQYJ
-  KoZIhvcNAQEBBQADggEPADCCAQoCggEBAKSWa+ySDNORb7UprChr1nT8WxcEdyK6
-  gkvwZ2TBhU/rqDqZLMqyIvtFn57xgHpOhseyCnOVAN7BRJDx09xZR9o/O9oqFu2B
-  sZgcTEI8Rc3/gH8AnTaXVISr1XXOwDiS7ILRlaT+TsCVim59qJ1H1KNEk5kDROJr
-  Ol/1wx7cnNcKFQgwKzf6LgfLYcAdOxLMvl9CBVxSATpvyf2C6CnimhaNYDbpXmKp
-  PLaWIvRwpnd4ZsjpVbECH6s9K8MAQ47YGvkbnVlDOYStUUA4qhoXuxueFZk/Sp+K
-  ugR0uNtdaf79u0Kd0yInTMrAOQPpUKNJ2LX/fdGH6xA3TDnNpQgcL/sCAwEAAaNk
-  MGIwCwYDVR0PBAQDAgLkMBMGA1UdJQQMMAoGCCsGAQUFBwMBMCoGA1UdEQQjMCGC
-  H3Rlc3R2bS1kbnZyLnZvaXAuY2hhcnRlcmxhYi5jb20wEgYDVR0TAQH/BAgwBgEB
-  /wIBATANBgkqhkiG9w0BAQsFAAOCAQEAKkUirlO+agjwL1c4DOv/ulYu6CdQQ4tM
-  +sK2cftREQsLG+85++8/hXOmUmuWmR+NfOVLSumwJXw8Hn4/HK7oBU3uQdIOsEYl
-  tcUH9tcGXfHvnnGKSTmCTVpZ99wvWMfvpLvnBu5G6x/bXQ3KUza7GdjpVorI3RHW
-  K9hVL/buFgplU5reJRXndxXRw0+Q2O5dNn0UsClUklrabDlEBPjiXKYeoiTdRfMl
-  x7pU+hO0L9JYdcN6XfGSB/CbXhugXajPaYAf8wcqSCEZWzsL14cBznKRDbYfk2sZ
-  8m2IwgGdLbR9dBjxaquNVWm/0daqMIG4+paN0RLJKhY0jxt88BKKqQ==
-  -----END CERTIFICATE-----
-imageDigestSources:
-- mirrors:
-  - host2.ocp-poc-demo.com:8443/openshift/release
-  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
-- mirrors:
-  - host2.ocp-poc-demo.com:8443/openshift/release-images
-  source: quay.io/openshift-release-dev/ocp-release
-```
-Nội dung file agent-config.yaml
-```
-apiVersion: v1beta1
-kind: AgentConfig
-metadata:
-  name: cluster-agent-config
-rendezvousIP: 192.168.4.200
-hosts:
-
-  - hostname: host1
-    interfaces:
-      - name: eth0
-        macAddress: 52:54:00:bc:e6:73
-    networkConfig:
-      interfaces:
-        - name: eth0
-          type: ethernet
-          state: up
-          mtu: 1500
-          ipv4:
-            enabled: true
-            dhcp: false
-            address:
-              - ip: 192.168.4.200
-                prefix-length: 24
-          ipv6:
-            enabled: false
-            dhcp: false
-            autoconf: false
-      dns-resolver:
-        config:
-          search:
-            - disconnected.ocp-poc-demo.com
-          server:
-            - 8.8.8.8
-            - 8.8.4.4
-      routes:
-        config:
-          - destination: 0.0.0.0/0
-            next-hop-address: 192.168.4.1
-            next-hop-interface: eth0
-            table-id: 254
-
-  - hostname: host3
-    interfaces:
-      - name: eth0
-        macAddress: 52:54:00:6d:62:9b
-    networkConfig:
-      interfaces:
-        - name: eth0
-          type: ethernet
-          state: up
-          mtu: 1500
-          ipv4:
-            enabled: true
-            dhcp: false
-            address:
-              - ip: 192.168.4.202
-                prefix-length: 24
-          ipv6:
-            enabled: false
-            dhcp: false
-            autoconf: false
-      dns-resolver:
-        config:
-          search:
-            - disconnected.ocp-poc-demo.com
-          server:
-            - 8.8.8.8
-            - 8.8.4.4
-      routes:
-        config:
-          - destination: 0.0.0.0/0
-            next-hop-address: 192.168.4.1
-            next-hop-interface: eth0
-            table-id: 254
-            
-  - hostname: host6
-    interfaces:
-      - name: eth0
-        macAddress: 52:54:00:18:10:5b
-    networkConfig:
-      interfaces:
-        - name: eth0
-          type: ethernet
-          state: up
-          mtu: 1500
-          ipv4:
-            enabled: true
-            dhcp: false
-            address:
-              - ip: 192.168.4.206
-                prefix-length: 24
-          ipv6:
-            enabled: false
-            dhcp: false
-            autoconf: false
-      dns-resolver:
-        config:
-          search:
-            - disconnected.ocp-poc-demo.com
-          server:
-            - 8.8.8.8
-            - 8.8.4.4
-      routes:
-        config:
-          - destination: 0.0.0.0/0
-            next-hop-address: 192.168.4.1
-            next-hop-interface: eth0
-            table-id: 254
+.
+├── docs/                          Step-by-step install guide (linked above)
+├── configs/                       install-config / agent-config / nodes-config *.example templates
+├── manifests/                     Harbor config template + ODF non-rotational MachineConfig
+├── scripts/
+│   └── tune-os.sh                 Bastion OS tuning (ulimits, sysctl, timezone)
+└── .gitignore                     Keeps real (secret-bearing) configs out of git
 ```
 
-Chạy câu lệnh để create file iso boot VM
-```
+## Quick start
+
+```bash
+# 1. Prep the bastion
+sudo ./scripts/tune-os.sh
+
+# 2. Stand up a mirror registry — pick one, see docs/02-registry-setup.md
+#    (Harbor or Red Hat Quay mirror-registry)
+
+# 3. Mirror the release/operator images — see docs/03-disconnected-mirroring.md
+
+# 4. Generate install-config.yaml + agent-config.yaml and build the ISO
+mkdir -p openshift/install && cd openshift/install
+cp ../../configs/install-config.yaml.example install-config.yaml
+cp ../../configs/agent-config.yaml.example agent-config.yaml
+# edit both, then:
 openshift-install agent create image --dir ./install
 ```
-Sau khi boot VM sử dụng lệnh dưới để theo dõi tình trạng init cluster
-```
-openshift-install agent --dir install wait-for bootstrap-complete --log-level=debug
 
-openshift-install agent --dir install wait-for install-complete --log-level=debug
-```
-Tạo image cho worker node
-```
-oc adm node-image create nodes-config.yaml --registry-config=/root/.docker/config.json
-```
-Theo dõi worker node boostrap lên
-```
-oc adm node-image monitor --ip-addresses <ip-node>
-```
-### Install ODF
-Environment should labels be directly applied to nodes
-```
-oc label node <node> node-role.kubernetes.io/infra=""
-oc label node <node> cluster.ocs.openshift.io/openshift-storage=""
-```
-```
-NODE_NAME=node/compute01.hub.bca.gov.vn
- cat <<EOF | oc debug $NODE_NAME
- chroot /host
- lsblk -o NAME,ROTA,SIZE,TYPE
-EOF
-```
-```
-NODE_NAME=node/compute01.hub.bca.gov.vn
- cat <<EOF | oc debug $NODE_NAME
- chroot /host
- ls -aslc /dev/disk/by-path/
-EOF
-```
-```
-cat << 'EOF' > 99-fake-nonrotational-mc.bu
-variant: openshift
-version: 4.18.1
-metadata:
-  name: 99-fake-nonrotational
-  labels:
-    machineconfiguration.openshift.io/role: master
-storage:
-  files:
-    - path: /etc/fake-nonrotational.sh
-      mode: 0755
-      contents:
-        inline: |
-          #!/bin/bash
+Full details for every step are in [docs/](docs/), in order.
 
-          target_disks=$(lsblk -dn -o NAME,SIZE | awk '$2 == "500G" {print $1}')
+## Security note
 
-          for disk in $target_disks; do
-              echo "Changing disk: /dev/$disk to non-rotational."
-              echo 0 > /sys/block/$disk/queue/rotational
-          done
-systemd:
-  units:
-    - name: fake-nonrotational.service
-      enabled: true
-      contents: |
-        [Unit]
-        Description=Force specific-size disks to be nonrotational
-        After=local-fs.target
-        Wants=local-fs.target
+`configs/*.example` and `manifests/harbor.yml.example` are templates only — they contain
+placeholders like `<PULL_SECRET_JSON>` and `<SSH_PUBLIC_KEY>`, not real credentials. Copy
+them to the non-`.example` filename to fill in real values; those real filenames are already
+excluded via `.gitignore` so cluster secrets never get committed.
 
-        [Service]
-        Type=oneshot
-        ExecStart=/etc/fake-nonrotational.sh
-        Restart=on-failure
-        RestartSec=5s
-        RemainAfterExit=true
-        User=root
-
-        [Install]
-        WantedBy=multi-user.target
-EOF
-```
-
-```
-cat <<EOF | oc apply -f -
----
-apiVersion: machineconfiguration.openshift.io/v1
-kind: MachineConfig
-metadata:
-  labels:
-    node-role.kubernetes.io/infra: ""
-  annotations:
-    description: "MC sets disks with size 500G to non-rotational."
-  name: 99-fake-nonrotational
-spec:
-  config:
-    ignition:
-      version: 3.4.0
-    storage:
-      files:
-        - contents:
-            compression: gzip
-            source: data:;base64,H4sIAAAAAAAC/0zNvU7DQBDE8X6fYnBOCkiYTVKCjIRQQBTQ0NGgc+5ir2ztgu9CxNe7I44i9P/fzOyIW1FufeqJZrgRDQiShoS95B4eST4ibIvlanFL2U9dzM8laNzxmNpxQB0UteHh6n59+nj3tMYX/H7A3K3QNKh+YYXPl0k0wy2/5ydEW5vKC0Th/o9eIBgBQNz0huq699qJdiU+B4f4xq7AbFDTerLss5j68aw6uAUuwek9cTvaZvgT/LqLu8gHQME00k8AAAD//0gklW0AAQAA
-          mode: 493
-          path: /etc/fake-nonrotational.sh
-    systemd:
-      units:
-        - contents: |
-            [Unit]
-            Description=Force specific-size disks to be nonrotational
-            After=local-fs.target
-            Wants=local-fs.target
-
-            [Service]
-            Type=oneshot
-            ExecStart=/etc/fake-nonrotational.sh
-            Restart=on-failure
-            RestartSec=5s
-            RemainAfterExit=true
-            User=root
-
-            [Install]
-            WantedBy=multi-user.target
-          enabled: true
-          name: fake-nonrotational.service
-EOF
-```
-```
-NODE_NAME=node/compute01.hub.bca.gov.vn
-
-cat <<EOF | oc debug $NODE_NAME
-  cat /sys/block/vdb/queue/rotational
-EOF
-```
-```
-NODE_NAME=node/compute01.hub.bca.gov.vn
-
-cat <<EOF | oc debug $NODE_NAME
-chroot /host
-
-journalctl | grep -e fake-nonrotational
-EOF
-```
+> This repo's history predates this reorganization and contains real secrets committed in
+> earlier revisions (a pull secret, registry credentials, and an SSH key). If this repository
+> is or was ever public, treat those credentials as compromised: rotate them, and consider
+> scrubbing history (e.g. with `git filter-repo` or BFG Repo-Cleaner) before trusting the
+> remote further.

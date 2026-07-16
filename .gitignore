@@ -1,0 +1,16 @@
+# Real, cluster-specific config files derived from the *.example templates
+# in configs/ — these carry a pull secret, SSH key and/or admin passwords
+# and must never be committed.
+configs/install-config.yaml
+configs/agent-config.yaml
+configs/nodes-config.yaml
+manifests/harbor.yml
+
+# Working directory used by openshift-install / oc-mirror
+openshift/
+install/
+*.iso
+
+# Pull secret downloaded from console.redhat.com
+pull-secret.txt
+pull-secret.json

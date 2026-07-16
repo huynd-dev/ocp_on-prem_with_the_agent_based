@@ -1,0 +1,40 @@
+variant: openshift
+version: 4.18.1
+metadata:
+  name: 99-fake-nonrotational
+  labels:
+    machineconfiguration.openshift.io/role: master
+storage:
+  files:
+    - path: /etc/fake-nonrotational.sh
+      mode: 0755
+      contents:
+        inline: |
+          #!/bin/bash
+
+          target_disks=$(lsblk -dn -o NAME,SIZE | awk '$2 == "500G" {print $1}')
+
+          for disk in $target_disks; do
+              echo "Changing disk: /dev/$disk to non-rotational."
+              echo 0 > /sys/block/$disk/queue/rotational
+          done
+systemd:
+  units:
+    - name: fake-nonrotational.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Force specific-size disks to be nonrotational
+        After=local-fs.target
+        Wants=local-fs.target
+
+        [Service]
+        Type=oneshot
+        ExecStart=/etc/fake-nonrotational.sh
+        Restart=on-failure
+        RestartSec=5s
+        RemainAfterExit=true
+        User=root
+
+        [Install]
+        WantedBy=multi-user.target

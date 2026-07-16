@@ -1,0 +1,35 @@
+# Template for `oc adm node-image create` — describes day-2 worker nodes to
+# boot and join an existing cluster. Copy to nodes-config.yaml, add one entry
+# per worker, and keep the real file OUT of git (see .gitignore) — it embeds
+# an SSH public key and your real network layout.
+#
+# Repeat the `hosts` entry below for each worker (compute01, compute02, ...),
+# giving each one its own hostname, MAC address and static IP.
+hosts:
+- hostname: compute01.hub.example.com
+  interfaces:
+   - macAddress: <NIC_MAC_ADDRESS>
+     name: eth0
+  networkConfig:
+   interfaces:
+     - name: eth0
+       type: ethernet
+       state: up
+       mac-address: <NIC_MAC_ADDRESS>
+       ipv4:
+         enabled: true
+         address:
+           - ip: 192.0.2.45
+             prefix-length: 24
+         dhcp: false
+   dns-resolver:
+     config:
+       server:
+       - 192.0.2.40
+   routes:
+     config:
+     - destination: 0.0.0.0/0
+       next-hop-address: 192.0.2.1
+       next-hop-interface: eth0
+       table-id: 254
+  sshKey: '<SSH_PUBLIC_KEY>'

@@ -1,0 +1,47 @@
+# Template for the agent-based installer's install-config.yaml.
+# Copy to install-config.yaml, fill in the placeholders, and keep the real
+# file OUT of git (see .gitignore) — it contains a pull secret and SSH key.
+apiVersion: v1
+baseDomain: example.com
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  replicas: 0 # workers are added post-install via `oc adm node-image`, see docs/05-worker-node-addition.md
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  replicas: 3
+metadata:
+  name: hub # cluster name, becomes part of the FQDN: api.<name>.<baseDomain>
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 192.0.2.0/24
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  baremetal:
+    apiVIP: "192.0.2.41"
+    ingressVIP: "192.0.2.42"
+# Pull secret from https://console.redhat.com/openshift/downloads#tool-pull-secret,
+# merged with your disconnected registry's auth (see docs/02-registry-setup.md)
+pullSecret: '<PULL_SECRET_JSON>'
+# Public key only — never commit the matching private key
+sshKey: '<SSH_PUBLIC_KEY>'
+# CA bundle for the disconnected/mirror registry (Harbor or Quay)
+additionalTrustBundle: |
+  -----BEGIN CERTIFICATE-----
+  <REGISTRY_CA_CERTIFICATE>
+  -----END CERTIFICATE-----
+imageDigestSources:
+- mirrors:
+  - registry.example.com:8443/openshift/release
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+- mirrors:
+  - registry.example.com:8443/openshift/release-images
+  source: quay.io/openshift-release-dev/ocp-release

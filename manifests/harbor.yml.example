@@ -1,0 +1,59 @@
+# Template for Harbor's harbor.yml (used only if you pick Harbor over Red Hat
+# Quay as the disconnected mirror registry — see docs/02-registry-setup.md).
+# Fill in the placeholders and keep the real file OUT of git.
+hostname: registry.example.com
+http:
+  port: 80
+https:
+  port: 443
+  certificate: /opt/harbor/cert/cert.pem
+  private_key: /opt/harbor/cert/key.pem
+harbor_admin_password: <HARBOR_ADMIN_PASSWORD>
+database:
+  password: <HARBOR_DB_PASSWORD>
+  max_idle_conns: 100
+  max_open_conns: 900
+  conn_max_lifetime: 5m
+  conn_max_idle_time: 0
+data_volume: /data
+trivy:
+  ignore_unfixed: false
+  skip_update: false
+  skip_java_db_update: false
+  offline_scan: false
+  security_check: vuln
+  insecure: false
+  timeout: 5m0s
+jobservice:
+  max_job_workers: 10
+  max_job_duration_hours: 24
+  job_loggers:
+    - STD_OUTPUT
+    - FILE
+  logger_sweeper_duration: 1
+notification:
+  webhook_job_max_retry: 3
+  webhook_job_http_client_timeout: 3
+log:
+  level: info
+  local:
+    rotate_count: 50
+    rotate_size: 200M
+    location: /var/log/harbor
+_version: 2.13.0
+proxy:
+  http_proxy:
+  https_proxy:
+  no_proxy:
+  components:
+    - core
+    - jobservice
+    - trivy
+upload_purging:
+  enabled: true
+  age: 168h
+  interval: 24h
+  dryrun: false
+cache:
+  enabled: false
+  expire_hours: 24

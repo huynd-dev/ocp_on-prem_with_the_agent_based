@@ -1,0 +1,43 @@
+# Butane-rendered output of 99-fake-nonrotational-mc.bu in this directory.
+# Regenerate with: butane 99-fake-nonrotational-mc.bu -o 99-fake-nonrotational-mc.yaml
+# Apply with: oc apply -f manifests/99-fake-nonrotational-mc.yaml
+---
+apiVersion: machineconfiguration.openshift.io/v1
+kind: MachineConfig
+metadata:
+  labels:
+    node-role.kubernetes.io/infra: ""
+  annotations:
+    description: "MC sets disks with size 500G to non-rotational."
+  name: 99-fake-nonrotational
+spec:
+  config:
+    ignition:
+      version: 3.4.0
+    storage:
+      files:
+        - contents:
+            compression: gzip
+            source: data:;base64,H4sIAAAAAAAC/0zNvU7DQBDE8X6fYnBOCkiYTVKCjIRQQBTQ0NGgc+5ir2ztgu9CxNe7I44i9P/fzOyIW1FufeqJZrgRDQiShoS95B4eST4ibIvlanFL2U9dzM8laNzxmNpxQB0UteHh6n59+nj3tMYX/H7A3K3QNKh+YYXPl0k0wy2/5ydEW5vKC0Th/o9eIBgBQNz0huq699qJdiU+B4f4xq7AbFDTerLss5j68aw6uAUuwek9cTvaZvgT/LqLu8gHQME00k8AAAD//0gklW0AAQAA
+          mode: 493
+          path: /etc/fake-nonrotational.sh
+    systemd:
+      units:
+        - contents: |
+            [Unit]
+            Description=Force specific-size disks to be nonrotational
+            After=local-fs.target
+            Wants=local-fs.target
+
+            [Service]
+            Type=oneshot
+            ExecStart=/etc/fake-nonrotational.sh
+            Restart=on-failure
+            RestartSec=5s
+            RemainAfterExit=true
+            User=root
+
+            [Install]
+            WantedBy=multi-user.target
+          enabled: true
+          name: fake-nonrotational.service
