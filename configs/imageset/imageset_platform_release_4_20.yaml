@@ -1,0 +1,15 @@
+# oc-mirror ImageSetConfiguration for the OCP 4.20 platform release.
+# Used by docs/03-disconnected-mirroring.md §3.2.1 and §3.3.1.
+---
+kind: ImageSetConfiguration
+apiVersion: mirror.openshift.io/v2alpha1
+archiveSize: 15
+mirror:
+  platform:
+    channels:
+    - name: stable-4.20
+      type: ocp
+      minVersion: 4.20.8
+      maxVersion: 4.20.15
+    graph: true
+  operators: []

@@ -1,0 +1,113 @@
+# oc-mirror ImageSetConfiguration for the Certified Operator catalog.
+# Used by docs/03-disconnected-mirroring.md §3.2.3 and §3.3.3.
+# Trim the `packages` list to what your cluster actually needs.
+---
+kind: ImageSetConfiguration
+apiVersion: mirror.openshift.io/v2alpha1
+archiveSize: 20
+mirror:
+  operators:
+  - catalog: registry.redhat.io/redhat/certified-operator-index:v4.20
+    packages:
+    - name: aci-containers-operator
+      channels:
+      - name: stable
+    - name: cloudnative-pg
+      channels:
+      - name: stable-v1
+    - name: cockroachdb-certified
+      channels:
+      - name: stable
+    - name: coroot-operator
+      channels:
+      - name: stable
+    - name: dell-csm-operator-certified
+      channels:
+      - name: stable
+    - name: dynatrace-operator
+      channels:
+      - name: alpha
+    - name: elasticsearch-eck-operator-certified
+      channels:
+      - name: stable
+    - name: gitlab-operator-kubernetes
+      channels:
+      - name: stable
+    - name: gitlab-runner-operator
+      channels:
+      - name: stable
+    - name: gpu-operator-certified
+      channels:
+      - name: v25.10
+    - name: hpe-csi-operator
+      channels:
+      - name: stable
+    - name: hpe-ezmeral-csi-operator
+      channels:
+      - name: stable
+    - name: hpe-filex-csi-operator
+      channels:
+      - name: stable
+    - name: instana-agent-operator
+      channels:
+      - name: stable
+    - name: infrastructure-asset-orchestrator-certified
+      channels:
+      - name: stable
+    - name: mongodb-enterprise
+      channels:
+      - name: stable
+    - name: mongodb-atlas-kubernetes
+      channels:
+      - name: stable
+    - name: mongodb-kubernetes
+      channels:
+      - name: stable
+    - name: f5-bigip-ctlr-operator
+      channels:
+      - name: stable
+    - name: neuvector-certified-operator
+      channels:
+      - name: beta
+    - name: confluent-for-kubernetes
+      channels:
+      - name: "3.1"
+    - name: iomesh-operator
+      channels:
+      - name: stable
+    - name: infoscale-dr-manager
+      channels:
+      - name: fast
+    - name: infoscale-licensing-operator
+      channels:
+      - name: fast
+    - name: infoscale-sds-operator
+      channels:
+      - name: fast
+    - name: nexus-repository-ha-operator-certified
+      channels:
+      - name: stable
+    - name: portworx-certified
+      channels:
+      - name: stable
+    - name: vault-secrets-operator
+      channels:
+      - name: stable
+    - name: percona-postgresql-operator-certified
+      channels:
+      - name: stable
+    - name: percona-server-mongodb-operator-certified
+      channels:
+      - name: stable
+    - name: percona-xtradb-cluster-operator-certified
+      channels:
+      - name: stable
+    - name: redis-enterprise-operator-cert
+      channels:
+      - name: production
+    - name: sanstoragecsi-operator-bundle
+      channels:
+      - name: stable
+    - name: stackable-opensearch-operator
+      channels:
+      - name: stable

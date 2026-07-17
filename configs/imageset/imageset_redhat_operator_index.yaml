@@ -1,0 +1,230 @@
+# oc-mirror ImageSetConfiguration for the Red Hat Operator catalog.
+# Used by docs/03-disconnected-mirroring.md §3.2.2 and §3.3.2.
+# Trim the `packages` list to what your cluster actually needs.
+---
+kind: ImageSetConfiguration
+apiVersion: mirror.openshift.io/v2alpha1
+archiveSize: 20
+mirror:
+  operators:
+  - catalog: registry.redhat.io/redhat/redhat-operator-index:v4.20
+    packages:
+    # Day 2 Ops
+    - name: orchestrator-operator
+      channels:
+      - name: stable
+    - name: nfd
+      channels:
+      - name: stable
+    - name: amq-streams
+      channels:
+      - name: stable
+    - name: amq-online
+      channels:
+      - name: stable
+    - name: amq-broker-rhel8
+      channels:
+      - name: 7.12.x
+    - name: amq-broker-rhel9
+      channels:
+      - name: 7.13.x
+    - name: serverless-operator
+      channels:
+      - name: stable
+    - name: rhbk-operator
+      channels:
+      - name: stable-v26.4
+    - name: rhcl-operator
+      channels:
+      - name: stable
+    - name: rh-service-binding-operator
+      channels:
+      - name: stable
+    - name: rhsso-operator
+      channels:
+      - name: stable
+    - name: rhtas-operator
+      channels:
+      - name: stable
+    - name: skupper-operator
+      channels:
+      - name: stable-2
+    - name: kernel-module-management
+      channels:
+      - name: stable
+    - name: kernel-module-management-hub
+      channels:
+      - name: stable
+    - name: machine-deletion-remediation
+      channels:
+      - name: stable
+    - name: mta-operator
+      channels:
+      - name: stable-v8.0
+    - name: mtc-operator
+      channels:
+      - name: release-v1.8
+    - name: compliance-operator
+      channels:
+      - name: stable
+    - name: gatekeeper-operator-product
+      channels:
+      - name: stable
+    - name: openshift-cert-manager-operator
+      channels:
+      - name: stable-v1
+    - name: servicemeshoperator
+      channels:
+      - name: stable
+    - name: servicemeshoperator3
+      channels:
+      - name: stable
+    - name: elasticsearch-operator
+      channels:
+      - name: stable-5.8
+    - name: external-dns-operator
+      channels:
+      - name: stable-v1
+    - name: dns-operator
+      channels:
+      - name: stable
+    - name: kiali-ossm
+      channels:
+      - name: stable
+    - name: cluster-kube-descheduler-operator
+      channels:
+      - name: stable
+    - name: node-healthcheck-operator
+      channels:
+      - name: stable
+    - name: node-maintenance-operator
+      channels:
+      - name: stable
+    - name: self-node-remediation
+      channels:
+      - name: stable
+    - name: cincinnati-operator
+      channels:
+      - name: v1
+    - name: advanced-cluster-management
+      channels:
+      - name: release-2.15
+    - name: multicluster-engine
+      channels:
+      - name: stable-2.10
+    - name: multicluster-global-hub-operator-rh
+      channels:
+      - name: release-1.6
+    - name: rhacs-operator
+      channels:
+      - name: stable
+    - name: submariner
+      channels:
+      - name: stable-0.22
+    - name: quay-operator
+      channels:
+      - name: stable-3.16
+    - name: openshift-gitops-operator
+      channels:
+      - name: latest
+    - name: openshift-pipelines-operator-rh
+      channels:
+      - name: latest
+    - name: web-terminal
+      channels:
+      - name: fast
+    - name: devspaces
+      channels:
+      - name: stable
+    - name: devworkspace-operator
+      channels:
+      - name: fast
+    - name: netobserv-operator
+      channels:
+      - name: stable
+    - name: cluster-observability-operator
+      channels:
+      - name: stable
+    - name: cluster-logging
+      channels:
+      - name: stable-6.4
+    - name: loki-operator
+      channels:
+      - name: stable-6.4
+    - name: tempo-product
+      channels:
+      - name: stable
+    - name: jaeger-product
+      channels:
+      - name: stable
+    - name: opentelemetry-product
+      channels:
+      - name: stable
+    # Openstack
+    - name: openstack-operator
+      channels:
+      - name: stable-v1.0
+    # Virtualization + Storage
+    - name: lvms-operator
+      channels:
+      - name: stable-4.20
+    - name: ocs-client-operator
+      channels:
+      - name: stable-4.20
+    - name: ocs-operator
+      channels:
+      - name: stable-4.20
+    - name: odf-multicluster-orchestrator
+      channels:
+      - name: stable-4.20
+    - name: odf-csi-addons-operator
+      channels:
+      - name: stable-4.20
+    - name: odf-dependencies
+      channels:
+      - name: stable-4.20
+    - name: odf-prometheus-operator
+      channels:
+      - name: stable-4.20
+    - name: odf-operator
+      channels:
+      - name: stable-4.20
+    - name: odf-external-snapshotter-operator
+      channels:
+      - name: stable-4.20
+    - name: rook-ceph-operator
+      channels:
+      - name: stable-4.20
+    - name: cephcsi-operator
+      channels:
+      - name: stable-4.20
+    - name: recipe
+      channels:
+      - name: stable-4.20
+    - name: local-storage-operator
+      channels:
+      - name: stable
+    - name: odr-hub-operator
+      channels:
+      - name: stable-4.20
+    - name: volsync-product
+      channels:
+      - name: stable
+    - name: mcg-operator
+      channels:
+      - name: stable-4.20
+    - name: kubevirt-hyperconverged
+      channels:
+      - name: stable
+    - name: kubernetes-nmstate-operator
+      channels:
+      - name: stable
+    - name: metallb-operator
+      channels:
+      - name: stable
+    - name: mtv-operator
+      channels:
+      - name: release-v2.10
+    - name: redhat-oadp-operator
+      channels:
+      - name: stable

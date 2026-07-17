@@ -14,7 +14,7 @@ backed by a local Harbor or Red Hat Quay mirror registry.
 **II. Installing**
 1. [Prerequisites — bastion host prep](docs/01-prerequisites.md)
 2. [Disconnected registry setup (Harbor / Quay)](docs/02-registry-setup.md)
-3. [Disconnected registry mirroring](docs/03-disconnected-mirroring.md) *(not yet documented, see note in file)*
+3. [Disconnected registry mirroring](docs/03-disconnected-mirroring.md)
 4. [Installing the cluster](docs/04-cluster-install.md)
 5. [Adding worker nodes (day 2)](docs/05-worker-node-addition.md)
 6. [Installing ODF](docs/06-odf-storage.md)
@@ -82,6 +82,7 @@ diagram under [Architecture](#architecture) above.
 .
 ├── docs/                          Step-by-step install guide (linked above)
 ├── configs/                       install-config / agent-config / nodes-config *.example templates
+│   └── imageset/                  oc-mirror ImageSetConfigurations (release, Red Hat & certified operators)
 ├── manifests/                     Harbor config template + ODF non-rotational MachineConfig
 ├── scripts/
 │   └── tune-os.sh                 Bastion OS tuning (ulimits, sysctl, timezone)
